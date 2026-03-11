@@ -11,9 +11,9 @@
       <button
         class="c-button"
         @click="() => buyRandomItem()"
-        :disabled="isDragging || score < getMinPurchasePrice()"
+        :disabled="isDragging || score < 10"
       >
-        Купить элемент (от {{ getMinPurchasePrice() }})
+        Купить элемент (10 очков)
       </button>
       <button
         class="c-button c-button--red"
@@ -70,11 +70,13 @@
     <div class="c-game-page__legend">
       <h3 class="c-game-page__legend-title">Правила и цены:</h3>
       <ul class="c-game-page__legend-list">
-        <li>🌿 Природа: 10-40 очков за продажу</li>
-        <li>🔥 Стихии: 50-200 очков за продажу</li>
-        <li>⚡ Технологии: 250-1000 очков за продажу</li>
+        <li>🌿 Природа: продажа 10-40, совмещение 5-11 очков</li>
+        <li>🔥 Стихии: продажа 50-200, совмещение 10-19 очков</li>
+        <li>⚡ Технологии: продажа 250-1000, совмещение 15-30 очков</li>
+        <li>💰 Покупка ЛЮБОГО элемента: 10 очков</li>
+        <li>Очки начисляются за продажу И совмещение элементов</li>
         <li>Клик по элементу: продажа за указанную цену</li>
-        <li>Ctrl+клик по макс. элементу: переход на след. ветку (5 очков)</li>
+        <li>Ctrl+клик по макс. элементу: возврат на уровень 1 той же ветки (5 очков)</li>
       </ul>
     </div>
   </div>
@@ -92,8 +94,7 @@ const BRANCHES = [
     items: ['🌱', '🌿', '🌳', '🏡'],
     basePrice: 10,
     sellPrice: 40,
-    nextBranch: 1,
-    multiplier: 1
+    mergePoints: [5, 7, 9, 11]
   },
   {
     name: 'Стихии',
@@ -101,8 +102,7 @@ const BRANCHES = [
     items: ['💧', '🔥', '💨', '🌪️'],
     basePrice: 50,
     sellPrice: 200,
-    nextBranch: 2,
-    multiplier: 5
+    mergePoints: [10, 13, 16, 19]
   },
   {
     name: 'Технологии',
@@ -110,8 +110,7 @@ const BRANCHES = [
     items: ['🔧', '⚙️', '🤖', '💻'],
     basePrice: 250,
     sellPrice: 1000,
-    nextBranch: null,
-    multiplier: 25
+    mergePoints: [15, 20, 25, 30]
   }
 ]
 
@@ -177,7 +176,8 @@ export default {
       this.score = 100
 
       for (let i = 0; i < 5; i++) {
-        this.addRandomItemToGrid(0)
+        const randomBranch = Math.floor(Math.random() * 3)
+        this.addRandomItemToGrid(randomBranch)
       }
 
       this.saveGame()
@@ -189,9 +189,6 @@ export default {
       }
     },
 
-    getMinPurchasePrice() {
-      return BRANCHES[0].basePrice
-    },
     getItemPrice(branchIndex, tier) {
       const branch = BRANCHES[branchIndex]
 
@@ -201,6 +198,9 @@ export default {
       return branch.basePrice * (tier + 1)
     },
 
+    getMergePoints(branchIndex, tier) {
+      return BRANCHES[branchIndex].mergePoints[tier]
+    },
     buyRandomItem() {
       if (this.isDragging) return
 
@@ -209,27 +209,16 @@ export default {
         alert('Нет свободных клеток!')
         return
       }
-      const availableBranches = []
-      if (this.score >= BRANCHES[0].basePrice) {
-        availableBranches.push(0)
-      }
-      if (this.score >= BRANCHES[1].basePrice) {
-        availableBranches.push(1)
-      }
-      if (this.score >= BRANCHES[2].basePrice) {
-        availableBranches.push(2)
-      }
-      if (availableBranches.length === 0) {
-        alert('Недостаточно очков для покупки любого элемента!')
+      if (this.score < 10) {
+        alert('Недостаточно очков! Нужно 10 очков')
         return
       }
-      const branchIndex = availableBranches[Math.floor(Math.random() * availableBranches.length)]
-      const price = BRANCHES[branchIndex].basePrice
-      if (this.score >= price) {
-        this.score -= price
-        this.addRandomItemToGrid(branchIndex)
-        this.saveGame()
-      }
+      const availableBranches = [0, 1, 2]
+      const randomIndex = Math.floor(Math.random() * availableBranches.length)
+      const branchIndex = availableBranches[randomIndex]
+      this.score -= 10
+      this.addRandomItemToGrid(branchIndex)
+      this.saveGame()
     },
     addRandomItemToGrid(branchIndex) {
       const emptyCells = this.getEmptyCells()
@@ -256,18 +245,15 @@ export default {
       const branch = BRANCHES[item.branch]
       const sellValue = this.getItemPrice(item.branch, item.tier)
       if (item.tier === branch.items.length - 1) {
+
         if (event && event.ctrlKey) {
-          if (branch.nextBranch !== null) {
-            if (this.score >= 5) {
-              this.score -= 5
-              this.convertToNextBranch(index, item.branch)
-              this.saveGame()
-              alert(`Элемент преобразован в ${BRANCHES[branch.nextBranch].name}!`)
-            } else {
-              alert('Недостаточно очков! Требуется 5 очков')
-            }
+          if (this.score >= 5) {
+            this.score -= 5
+            this.recycleToFirstLevel(index, item.branch)
+            this.saveGame()
+            alert(`Элемент возвращен на 1 уровень ветки ${BRANCHES[item.branch].name}!`)
           } else {
-            alert('Это максимальная ветка! Дальнейшее развитие невозможно')
+            alert('Недостаточно очков! Требуется 5 очков')
           }
         } else {
           if (confirm(`Продать элемент за ${sellValue} очков?`)) {
@@ -285,12 +271,11 @@ export default {
       }
     },
 
-    convertToNextBranch(index, currentBranch) {
-      const nextBranch = BRANCHES[currentBranch].nextBranch
+    recycleToFirstLevel(index, branchIndex) {
       this.grid[index] = {
-        branch: nextBranch,
+        branch: branchIndex,
         tier: 0,
-        value: BRANCHES[nextBranch].items[0]
+        value: BRANCHES[branchIndex].items[0]
       }
     },
 
@@ -355,18 +340,8 @@ export default {
         const branch = BRANCHES[fromItem.branch]
         const newTier = fromItem.tier + 1
         if (newTier < branch.items.length) {
-          let mergePoints = 0
+          const mergePoints = this.getMergePoints(fromItem.branch, fromItem.tier)
 
-          switch(fromItem.branch) {
-            case 0:
-              mergePoints = 5 + (fromItem.tier * 2)
-              break
-            case 1:
-              mergePoints = 10 + (fromItem.tier * 3)
-              break
-            case 2:
-              mergePoints = 15 + (fromItem.tier * 5)
-          }
           this.score += mergePoints
           this.grid[toIndex] = {
             branch: fromItem.branch,
@@ -374,7 +349,6 @@ export default {
             value: branch.items[newTier]
           }
           this.grid[fromIndex] = null
-          console.log(`+${mergePoints} очков за совмещение!`)
         } else {
           return
         }
