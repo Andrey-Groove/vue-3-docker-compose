@@ -268,10 +268,9 @@ export default {
               return
             }
             this.score -= 5
-            const randomBranch = Math.floor(Math.random() * 3)
-            this.addFirstLevelItem(randomBranch)
+            this.addFirstLevelItem(item.branch)
             this.saveGame()
-            alert(`Куплен новый элемент за 5 очков! (максимальный элемент сохранен)`)
+            alert(`Куплен новый элемент ${branch.items[0]} за 5 очков! (максимальный элемент сохранен)`)
           } else {
             alert('Недостаточно очков! Требуется 5 очков')
           }
