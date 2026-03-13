@@ -74,9 +74,9 @@
         <li>🔥 Стихии: продажа 50-200, совмещение 10-19 очков</li>
         <li>⚡ Технологии: продажа 250-1000, совмещение 15-30 очков</li>
         <li>💰 Покупка ЛЮБОГО элемента: 10 очков</li>
+        <li> Ctrl+клик на MAX элемент: купить новый элемент за 5 очков</li>
         <li>Очки начисляются за продажу И совмещение элементов</li>
         <li>Клик по элементу: продажа за указанную цену</li>
-        <li>Ctrl+клик по макс. элементу: возврат на уровень 1 той же ветки (5 очков)</li>
       </ul>
     </div>
   </div>
@@ -232,6 +232,21 @@ export default {
       }
       return true
     },
+    addFirstLevelItem(branchIndex) {
+      const emptyCells = this.getEmptyCells()
+      if (emptyCells.length === 0) {
+        alert('Нет свободных клеток для нового элемента!')
+        return false
+      }
+      const randomIndex = emptyCells[Math.floor(Math.random() * emptyCells.length)]
+      this.grid[randomIndex] = {
+        branch: branchIndex,
+        tier: 0,
+        value: BRANCHES[branchIndex].items[0]
+      }
+
+      return true
+    },
 
     getEmptyCells() {
       return this.grid.reduce((acc, cell, index) => {
@@ -245,13 +260,18 @@ export default {
       const branch = BRANCHES[item.branch]
       const sellValue = this.getItemPrice(item.branch, item.tier)
       if (item.tier === branch.items.length - 1) {
-
         if (event && event.ctrlKey) {
           if (this.score >= 5) {
+            const emptyCells = this.getEmptyCells()
+            if (emptyCells.length === 0) {
+              alert('Нет свободных клеток для нового элемента!')
+              return
+            }
             this.score -= 5
-            this.recycleToFirstLevel(index, item.branch)
+            const randomBranch = Math.floor(Math.random() * 3)
+            this.addFirstLevelItem(randomBranch)
             this.saveGame()
-            alert(`Элемент возвращен на 1 уровень ветки ${BRANCHES[item.branch].name}!`)
+            alert(`Куплен новый элемент за 5 очков! (максимальный элемент сохранен)`)
           } else {
             alert('Недостаточно очков! Требуется 5 очков')
           }
@@ -268,14 +288,6 @@ export default {
           this.grid[index] = null
           this.saveGame()
         }
-      }
-    },
-
-    recycleToFirstLevel(index, branchIndex) {
-      this.grid[index] = {
-        branch: branchIndex,
-        tier: 0,
-        value: BRANCHES[branchIndex].items[0]
       }
     },
 
@@ -341,7 +353,6 @@ export default {
         const newTier = fromItem.tier + 1
         if (newTier < branch.items.length) {
           const mergePoints = this.getMergePoints(fromItem.branch, fromItem.tier)
-
           this.score += mergePoints
           this.grid[toIndex] = {
             branch: fromItem.branch,
