@@ -4,7 +4,8 @@
     :class="{
       'c-game-cell--draggable': item,
       'c-game-cell--dragging': isDragging && item,
-      'c-game-cell--empty': !item
+      'c-game-cell--empty': !item,
+      'c-game-cell--max-tier': item && item.tier === 3
     }"
     :data-index="index"
     :draggable="!!item && !isDragging"
@@ -15,9 +16,17 @@
     @touchstart="() => onTouchStart()"
     @touchmove.prevent="(event) => onTouchMove(event)"
     @touchend="(event) => onTouchEnd(event)"
+    @click="(event) => onCellClick(event)"
   >
-    <span v-if="item" class="c-game-cell__letter" :class="`c-game-cell__letter--tier-${item.tier}`">
-      {{ item.value }}
+    <span
+      v-if="item"
+      class="c-game-cell__content"
+      :class="`c-game-cell__content--branch-${item.branch} c-game-cell__content--tier-${item.tier}`"
+    >
+      <span class="c-game-cell__emoji">{{ item.value }}</span>
+      <span class="c-game-cell__level">{{ item.tier + 1 }}</span>
+      <span class="c-game-cell__price">{{ getItemPrice() }}</span>
+      <span v-if="item.tier === 3" class="c-game-cell__max-badge">MAX</span>
     </span>
   </div>
 </template>
@@ -41,22 +50,36 @@ export default {
     }
   },
 
-  emits: ['drag-start', 'drag-end', 'drop', 'touch-move', 'touch-end'],
+  emits: ['drag-start', 'drag-end', 'drop', 'touch-move', 'touch-end', 'cell-click'],
 
   data() {
     return {
-      longPressTimer: null
+      longPressTimer: null,
+      BRANCHES: [
+        { basePrice: 10, sellPrice: 40 },
+        { basePrice: 50, sellPrice: 200 },
+        { basePrice: 250, sellPrice: 1000 }
+      ]
     }
   },
 
   methods: {
+    getItemPrice() {
+      if (!this.item) return 0
+      const branch = this.BRANCHES[this.item.branch]
+      if (this.item.tier === 3) {
+        return branch.sellPrice
+      }
+      return branch.basePrice * (this.item.tier + 1)
+    },
+
     onDragStart(event) {
       if (!this.item) return
       event.dataTransfer.effectAllowed = 'move'
       event.dataTransfer.setData('text/plain', this.index.toString())
       const dragIcon = document.createElement('div')
       dragIcon.className = 'c-game-cell__drag-preview'
-      dragIcon.textContent = this.item.value
+      dragIcon.textContent = `${this.item.value} (${this.getItemPrice()})`
       document.body.appendChild(dragIcon)
       event.dataTransfer.setDragImage(dragIcon, 25, 25)
       setTimeout(() => document.body.removeChild(dragIcon), 0)
@@ -104,6 +127,11 @@ export default {
           this.$emit('touch-end', event, parseInt(targetIndex))
         }
       }
+    },
+    onCellClick(event) {
+      if (this.item) {
+        this.$emit('cell-click', this.item, this.index, event)
+      }
     }
   }
 }
@@ -144,60 +172,71 @@ export default {
     border-style: dashed;
   }
 
-  &__letter {
+
+  &:hover {
+    transform: scale(1.02);
+  }
+  &__content {
     display: flex;
     align-items: center;
     justify-content: center;
     width: 100%;
     height: 100%;
-    transition: all 0.3s ease;
-
-    &--tier-0 {
-      color: #4a90e2;
-      font-size: 28px;
+    position: relative;
+    border-radius: 6px;
+    &--branch-0 {
+      background: #e8f5e8;
     }
-
-    &--tier-1 {
-      color: #50c878;
-      font-size: 32px;
-      font-weight: 600;
+    &--branch-1 {
+      background: #ffebee;
     }
-
-    &--tier-2 {
-      color: #f5a623;
-      font-size: 36px;
-      font-weight: 600;
+    &--branch-2 {
+      background: #e3f2fd;
     }
+  }
 
-    &--tier-3 {
-      color: #e67e22;
-      font-size: 40px;
-      font-weight: 700;
-    }
+  &__emoji {
+    font-size: inherit;
+    margin-bottom: 12px;
+  }
 
-    &--tier-4 {
-      color: #e74c3c;
-      font-size: 44px;
-      font-weight: 700;
-    }
+  &__level {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 18px;
+    height: 18px;
+    background: #000000;
+    color: white;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+  }
 
-    &--tier-5 {
-      color: #9b59b6;
-      font-size: 48px;
-      font-weight: 800;
-    }
+  &__price {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    font-size: 15px;
+    font-weight: bold;
+    color: #2e7d32;
+    background: #ddeeff;
+    padding: 2px 4px;
+    border-radius: 4px;
+  }
 
-    &--tier-6 {
-      color: #f1c40f;
-      font-size: 52px;
-      font-weight: 800;
-    }
-
-    &--tier-7 {
-      color: #e74c3c;
-      font-size: 56px;
-      font-weight: 900;
-    }
+  &__max-badge {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    font-size: 8px;
+    font-weight: bold;
+    color: gold;
+    background: #000000;
+    padding: 2px 4px;
+    border-radius: 4px;
   }
 
   &__drag-preview {
